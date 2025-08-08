@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediCare - Doctor Appointment Booking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#10b981',
+                        accent: '#0ea5e9',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .hero-bg {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        }
+        .stats-bg {
+            background: linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%);
+        }
+        .cta-bg {
+            background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+        }
+        .doctor-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        .appointment-form {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        }
+        /* Swiper custom styles */
+        .swiper {
+            width: 100%;
+            height: 100%;
+        }
+        .swiper-slide {
+            text-align: center;
+            font-size: 18px;
+            background: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 10px;
+            animation: modalopen 0.4s;
+        }
+        @keyframes modalopen {
+            from {opacity: 0; transform: translateY(-60px);}
+            to {opacity: 1; transform: translateY(0);}
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+        }
+        /* Notification styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1001;
+            display: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.3s, fadeOut 0.5s 2.5s;
+        }
+        @keyframes slideIn {
+            from {right: -300px; opacity: 0;}
+            to {right: 20px; opacity: 1;}
+        }
+        @keyframes fadeOut {
+            from {opacity: 1;}
+            to {opacity: 0;}
+        }
+        .email-notification {
+            background-color: #3b82f6;
+        }
+        .whatsapp-notification {
+            background-color: #25D366;
+        }
+        /* Loading spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #4f46e5;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Responsive improvements */
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 95%;
+                margin: 20% auto;
+                padding: 15px;
+            }
+            .hero-bg {
+                padding: 40px 20px;
+            }
+            .stats-bg .grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .appointment-form .md\:flex {
+                flex-direction: column;
+            }
+            .appointment-form .md\:w-1\/3,
+            .appointment-form .md\:w-2\/3 {
+                width: 100%;
+            }
+            .appointment-form .md\:w-1\/3 {
+                border-bottom: 1px solid #e5e7eb;
+            }
+        }
+        @media (max-width: 640px) {
+            .stats-bg .grid {
+                grid-template-columns: 1fr;
+            }
+            .hero-bg h1 {
+                font-size: 2rem;
+            }
+            .modal-content {
+                width: 95%;
+            }
+        }
+        /* Page sections */
+        .page-section {
+            display: none;
+        }
+        .page-section.active {
+            display: block;
+        }
+        /* Navigation active state */
+        .nav-link.active {
+            border-bottom: 2px solid #4f46e5;
+            color: #4f46e5;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Email Notification -->
+    <div id="email-notification" class="notification email-notification">
+        <i class="fas fa-envelope mr-2"></i>Confirmation email sent to your inbox!
+    </div>
+    
+    <!-- WhatsApp Notification -->
+    <div id="whatsapp-notification" class="notification whatsapp-notification">
+        <i class="fab fa-whatsapp mr-2"></i>WhatsApp confirmation sent!
+    </div>
+
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <div class="bg-indigo-600 text-white p-2 rounded-lg font-bold text-xl cursor-pointer" onclick="showPage('home')">
+                            MediCare
+                        </div>
+                    </div>
+                    <div class="hidden md:ml-6 md:flex md:space-x-8">
+                        <a href="#" class="nav-link text-gray-500 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-gray-300 text-sm font-medium" onclick="showPage('home'); return false;">
+                            Home
+                        </a>
+                        <a href="#" class="nav-link text-gray-500 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-gray-300 text-sm font-medium" onclick="showPage('doctors'); return false;">
+                            Doctors
+                        </a>
+                        <a href="#" class="nav-link text-gray-500 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-gray-300 text-sm font-medium" onclick="showPage('about'); return false;">
+                            About
+                        </a>
+                        <a href="#" class="nav-link text-gray-500 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-gray-300 text-sm font-medium" onclick="showPage('contact'); return false;">
+                            Contact
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="hidden md:flex items-center space-x-4">
+                    <div class="flex items-center space-x-4">
+                        <a href="#" class="text-gray-700 hover:text-indigo-600 flex items-center text-sm" onclick="showPage('appointments'); return false;">
+                            <i class="fas fa-calendar mr-1"></i> My Appointments
+                        </a>
+                        <a href="#" class="text-gray-700 hover:text-indigo-600 text-sm" onclick="showPage('admin'); return false;">
+                            Admin Dashboard
+                        </a>
+                        <button class="text-gray-700 hover:text-indigo-600 flex items-center text-sm">
+                            <i class="fas fa-sign-out-alt mr-1"></i> Logout
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="md:hidden flex items-center">
+                    <button id="mobile-menu-button" class="text-gray-700 hover:text-indigo-600 p-2">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="mobile-menu" class="md:hidden hidden">
+            <div class="pt-2 pb-3 space-y-1">
+                <a href="#" class="border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 block pl-3 pr-4 py-2 border-l-4 text-base font-medium" onclick="showPage('home'); return false;">
+                    Home
+                </a>
+                <a href="#" class="border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 block pl-3 pr-4 py-2 border-l-4 text-base font-medium" onclick="showPage('doctors'); return false;">
+                    Doctors
+                </a>
+                <a href="#" class="border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 block pl-3 pr-4 py-2 border-l-4 text-base font-medium" onclick="showPage('about'); return false;">
+                    About
+                </a>
+                <a href="#" class="border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 block pl-3 pr-4 py-2 border-l-4 text-base font-medium" onclick="showPage('contact'); return false;">
+                    Contact
+                </a>
+                <a href="#" class="border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 block pl-3 pr-4 py-2 border-l-4 text-base font-medium" onclick="showPage('appointments'); return false;">
+                    My Appointments
+                </a>
+                <a href="#" class="border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 block pl-3 pr-4 py-2 border-l-4 text-base font-medium" onclick="showPage('admin'); return false;">
+                    Admin Dashboard
+                </a>
+                <button class="border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 block pl-3 pr-4 py-2 border-l-4 text-base font-medium w-full text-left">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Home Page -->
+    <div id="home-page" class="page-section active">
+        <!-- Hero Section -->
+        <section class="hero-bg text-white py-16 sm:py-20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center">
+                    <div class="text-center lg:text-left">
+                        <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6">
+                            Find & Book Your Perfect Doctor
+                        </h1>
+                        <p class="text-lg sm:text-xl mb-6 sm:mb-8 text-indigo-100 max-w-2xl">
+                            Easy online appointments with top-rated healthcare professionals. 
+                            Your health is our priority.
+                        </p>
+                        <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 justify-center lg:justify-start">
+                            <a href="#" class="bg-white text-indigo-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-300 text-center" onclick="showPage('doctors'); return false;">
+                                Find Doctors
+                            </a>
+                            <a href="#" class="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-indigo-600 transition duration-300 text-center" onclick="showPage('contact'); return false;">
+                                Contact Us
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex justify-center lg:justify-end">
+                        <img src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=500&h=400&fit=crop" alt="Doctor consultation" class="rounded-lg shadow-2xl w-full max-w-md">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Section -->
+        <section class="stats-bg py-12 sm:py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8 text-center">
+                    <div class="p-4 sm:p-6">
+                        <div class="bg-indigo-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                            <i class="fas fa-users text-indigo-600 text-xl sm:text-2xl"></i>
+                        </div>
+                        <h3 class="text-2xl sm:text-3xl font-bold text-gray-900">10,000+</h3>
+                        <p class="text-gray-600 text-sm sm:text-base">Happy Patients</p>
+                    </div>
+                    <div class="p-4 sm:p-6">
+                        <div class="bg-green-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                            <i class="fas fa-award text-green-600 text-xl sm:text-2xl"></i>
+                        </div>
+                        <h3 class="text-2xl sm:text-3xl font-bold text-gray-900">200+</h3>
+                        <p class="text-gray-600 text-sm sm:text-base">Expert Doctors</p>
+                    </div>
+                    <div class="p-4 sm:p-6">
+                        <div class="bg-blue-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                            <i class="fas fa-calendar text-blue-600 text-xl sm:text-2xl"></i>
+                        </div>
+                        <h3 class="text-2xl sm:text-3xl font-bold text-gray-900">50,000+</h3>
+                        <p class="text-gray-600 text-sm sm:text-base">Appointments</p>
+                    </div>
+                    <div class="p-4 sm:p-6">
+                        <div class="bg-purple-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                            <i class="fas fa-phone text-purple-600 text-xl sm:text-2xl"></i>
+                        </div>
+                        <h3 class="text-2xl sm:text-3xl font-bold text-gray-900">24/7</h3>
+                        <p class="text-gray-600 text-sm sm:text-base">Support</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Featured Doctors -->
+        <section class="py-12 sm:py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-10 sm:mb-12">
+                    <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">Our Top Doctors</h2>
+                    <p class="text-gray-600 max-w-2xl mx-auto text-sm sm:text-base">
+                        Meet our team of experienced and highly qualified medical professionals
+                    </p>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden doctor-card">
+                        <img src="https://images.unsplash.com/photo-1559839734-2b71ea811ec6?w=400&h=300&fit=crop" alt="Dr. Sarah Johnson" class="w-full h-48 object-cover">
+                        <div class="p-5 sm:p-6">
+                            <h3 class="text-lg sm:text-xl font-semibold text-gray-900">Dr. Sarah Johnson</h3>
+                            <p class="text-indigo-600 mb-2">Cardiologist</p>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-gray-600 text-sm">15 years experience</span>
+                                <span class="flex items-center text-yellow-500">
+                                    <i class="fas fa-star"></i> 4.9
+                                </span>
+                            </div>
+                            <button class="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-300 book-btn" data-doctor="Dr. Sarah Johnson" onclick="showPage('booking'); return false;">
+                                Book Appointment
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden doctor-card">
+                        <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=300&fit=crop" alt="Dr. Michael Chen" class="w-full h-48 object-cover">
+                        <div class="p-5 sm:p-6">
+                            <h3 class="text-lg sm:text-xl font-semibold text-gray-900">Dr. Michael Chen</h3>
+                            <p class="text-indigo-600 mb-2">Neurologist</p>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-gray-600 text-sm">12 years experience</span>
+                                <span class="flex items-center text-yellow-500">
+                                    <i class="fas fa-star"></i> 4.8
+                                </span>
+                            </div>
+                            <button class="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-300 book-btn" data-doctor="Dr. Michael Chen" onclick="showPage('booking'); return false;">
+                                Book Appointment
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden doctor-card">
+                        <img src="https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400&h=300&fit=crop" alt="Dr. Emily Rodriguez" class="w-full h-48 object-cover">
+                        <div class="p-5 sm:p-6">
+                            <h3 class="text-lg sm:text-xl font-semibold text-gray-900">Dr. Emily Rodriguez</h3>
+                            <p class="text-indigo-600 mb-2">Pediatrician</p>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-gray-600 text-sm">10 years experience</span>
+                                <span class="flex items-center text-yellow-500">
+                                    <i class="fas fa-star"></i> 4.9
+                                </span>
+                            </div>
+                            <button class="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-300 book-btn" data-doctor="Dr. Emily Rodriguez" onclick="showPage('booking'); return false;">
+                                Book Appointment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Testimonials -->
+        <section class="py-12 sm:py-16 bg-gray-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-10 sm:mb-12">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-4">What Our Patients Say</h2>
+                    <p class="text-gray-600 max-w-2xl mx-auto text-sm sm:text-base">
+                        Hear from patients who have experienced our exceptional care
+                    </p>
+                </div>
+                
+                <div class="swiper mySwiper">
+                    <div class="swiper-wrapper">
+                        <div class="swiper-slide">
+                            <div class="bg-white p-5 sm:p-6 rounded-lg shadow-md mx-2 sm:mx-4">
+                                <div class="flex items-center mb-3 sm:mb-4">
+                                    <div class="flex text-yellow-400 text-sm sm:text-base">
+                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i>
+                                    </div>
+                                </div>
+                                <p class="text-gray-600 mb-4 text-sm sm:text-base italic">"Booking an appointment was so easy! The doctor was professional and caring."</p>
+                                <p class="font-semibold text-gray-900 text-sm">- John Smith</p>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="bg-white p-5 sm:p-6 rounded-lg shadow-md mx-2 sm:mx-4">
+                                <div class="flex items-center mb-3 sm:mb-4">
+                                    <div class="flex text-yellow-400 text-sm sm:text-base">
+                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i>
+                                    </div>
+                                </div>
+                                <p class="text-gray-600 mb-4 text-sm sm:text-base italic">"I found the perfect specialist for my condition. Highly recommend this platform."</p>
+                                <p class="font-semibold text-gray-900 text-sm">- Maria Garcia</p>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="bg-white p-5 sm:p-6 rounded-lg shadow-md mx-2 sm:mx-4">
+                                <div class="flex items-center mb-3 sm:mb-4">
+                                    <div class="flex text-yellow-400 text-sm sm:text-base">
+                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i>
+                                        <i class="far fa-star"></i>
+                                    </div>
+                                </div>
+                                <p class="text-gray-600 mb-4 text-sm sm:text-base italic">"The whole process from booking to consultation was seamless and efficient."</p>
+                                <p class="font-semibold text-gray-900 text-sm">- David Wilson</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="swiper-button-next"></div>
+                    <div class="swiper-button-prev"></div>
+                    <div class="swiper-pagination"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA Section -->
+        <section class="cta-bg text-white py-12 sm:py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">Ready to Book Your Appointment?</h2>
+                <p class="text-base sm:text-xl mb-6 sm:mb-8 text-indigo-100 max-w-2xl mx-auto">
+                    Join thousands of satisfied patients who trust our platform for their healthcare needs
+                </p>
+                <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <a href="#" class="bg-white text-indigo-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-300 text-sm sm:text-base" onclick="showPage('doctors'); return false;">
+                        Find a Doctor
+                    </a>
+                    <a href="https://wa.me/1234567890?text=Hello, I'd like to book an appointment" target="_blank" rel="noopener noreferrer" class="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-indigo-600 transition duration-300 text-sm sm:text-base">
+                        <i class="fab fa-whatsapp mr-2"></i>Book on WhatsApp
+                    </a>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Doctors Page -->
+    <div id="doctors-page" class="page-section">
+        <section class="py-12 sm:py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-10 sm:mb-12">
+                    <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">Our Doctors</h2>
+                    <p class="text-gray-600 max-w-2xl mx-auto text-sm sm:text-base">
+                        Meet our team of experienced and highly qualified medical professionals
+                    </p>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden doctor-card">
+                        <img src="https://images.unsplash.com/photo-1559839734-2b71ea811ec6?w=400&h=300&fit=crop" alt="Dr. Sarah Johnson" class="w-full h-48 object-cover">
+                        <div class="p-5 sm:p-6">
+                            <h3 class="text-lg sm:text-xl font-semibold text-gray-900">Dr. Sarah Johnson</h3>
+                            <p class="text-indigo-600 mb-2">Cardiologist</p>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-gray-600 text-sm">15 years experience</span>
+                                <span class="flex items-center text-yellow-500">
+                                    <i class="fas fa-star"></i> 4.9
+                                </span>
+                            </div>
+                            <button class="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-300" onclick="showPage('booking'); return false;">
+                                Book Appointment
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden doctor-card">
+                        <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=300&fit=crop" alt="Dr. Michael Chen" class="w-full h-48 object-cover">
+                        <div class="p-5 sm:p-6">
+                            <h3 class="text-lg sm:text-xl font-semibold text-gray-900">Dr. Michael Chen</h3>
+                            <p class="text-indigo-600 mb-2">Neurologist</p>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-gray-600 text-sm">12 years experience</span>
+                                <span class="flex items-center text-yellow-500">
+                                    <i class="fas fa-star"></i> 4.8
+                                </span>
+                            </div>
+                            <button class="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-300" onclick="showPage('booking'); return false;">
+                                Book Appointment
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden doctor-card">
+                        <img src="https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400&h=300&fit=crop" alt="Dr. Emily Rodriguez" class="w-full h-48 object-cover">
+                        <div class="p-5 sm:p-6">
+                            <h3 class="text-lg sm:text-xl font-semibold text-gray-900">Dr. Emily Rodriguez</h3>
+                            <p class="text-indigo-600 mb-2">Pediatrician</p>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-gray-600 text-sm">10 years experience</span>
+                                <span class="flex items-center text-yellow-500">
+                                    <i class="fas fa-star"></i> 4.9
+                                </span>
+                            </div>
+                            <button class="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-300" onclick="showPage('booking'); return false;">
+                                Book Appointment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-10">
+                    <button class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300" onclick="showPage('home'); return false;">
+                        Back to Home
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Booking Page -->
+    <div id="booking-page" class="page-section">
+        <section class="py-12 sm:py-16">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-10 sm:mb-12">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-4">Book Your Appointment</h2>
+                    <p class="text-gray-600 text-sm sm:text-base">
+                        Schedule your appointment with our expert doctors
+                    </p>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden appointment-form">
+                    <div class="md:flex">
+                        <div class="md:w-1/3 bg-indigo-50 p-5 sm:p-6">
+                            <div class="text-center">
+                                <img id="doctor-photo-booking" src="https://images.unsplash.com/photo-1559839734-2b71ea811ec6?w=200&h=200&fit=crop" alt="Doctor" class="w-24 h-24 sm:w-32 sm:h-32 rounded-full mx-auto mb-4 object-cover">
+                                <h2 id="doctor-name-booking" class="text-lg sm:text-xl font-bold text-gray-900">Dr. Sarah Johnson</h2>
+                                <p id="doctor-specialty-booking" class="text-indigo-600 mb-4">Cardiologist</p>
+                            </div>
+                            
+                            <div class="mt-6">
+                                <h3 class="font-semibold text-gray-900 mb-3 text-sm sm:text-base">Appointment Details</h3>
+                                <div class="space-y-2 text-xs sm:text-sm text-gray-600">
+                                    <div class="flex justify-between">
+                                        <span>Patient:</span>
+                                        <span id="patient-name-booking">Not specified</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Date:</span>
+                                        <span id="appointment-date-booking">Not selected</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Time:</span>
+                                        <span id="appointment-time-booking">Not selected</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="md:w-2/3 p-5 sm:p-6">
+                            <form id="appointment-form" class="space-y-5">
+                                <div>
+                                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                                        Full Name *
+                                    </label>
+                                    <input type="text" id="name" name="name" required class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base">
+                                </div>
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+                                            Email Address *
+                                        </label>
+                                        <input type="email" id="email" name="email" required class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
+                                            Phone Number *
+                                        </label>
+                                        <input type="tel" id="phone" name="phone" required class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base">
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="date" class="block text-sm font-medium text-gray-700 mb-1">
+                                            Select Date *
+                                        </label>
+                                        <input type="date" id="date" name="date" required class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="time" class="block text-sm font-medium text-gray-700 mb-1">
+                                            Select Time *
+                                        </label>
+                                        <select id="time" name="time" required class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base">
+                                            <option value="">Select time</option>
+                                            <option value="09:00">09:00 AM</option>
+                                            <option value="09:30">09:30 AM</option>
+                                            <option value="10:00">10:00 AM</option>
+                                            <option value="10:30">10:30 AM</option>
+                                            <option value="11:00">11:00 AM</option>
+                                            <option value="11:30">11:30 AM</option>
+                                            <option value="14:00">02:00 PM</option>
+                                            <option value="14:30">02:30 PM</option>
+                                            <option value="15:00">03:00 PM</option>
+                                            <option value="15:30">03:30 PM</option>
+                                            <option value="16:00">04:00 PM</option>
+                                            <option value="16:30">04:30 PM</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label for="reason" class="block text-sm font-medium text-gray-700 mb-1">
+                                        Reason for Appointment *
+                                    </label>
+                                    <textarea id="reason" name="reason" rows="3" required class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"></textarea>
+                                </div>
+                                
+                                <div class="flex items-center">
+                                    <input id="whatsapp" type="checkbox" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                    <label for="whatsapp" class="ml-2 block text-sm text-gray-700">
+                                        Also send confirmation via WhatsApp
+                                    </label>
+                                </div>
+                                
+                                <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                                    <button type="button" onclick="showPage('doctors'); return false;" class="flex-1 px-4 py-2 sm:px-6 sm:py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-300 text-sm sm:text-base">
+                                        Cancel
+                                    </button>
+                                    <button type="submit" class="flex-1 bg-indigo-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:bg-indigo-700 transition duration-300 text-sm sm:text-base">
+                                        Confirm Appointment
+                                    </button>
+                                </div>
+                                
+                                <div class="text-center mt-4">
+                                    <a href="https://wa.me/1234567890?text=Hello, I'd like to book an appointment" target="_blank" rel="noopener noreferrer" class="text-green-600 hover:text-green-800 font-medium text-sm sm:text-base">
+                                        <i class="fab fa-whatsapp mr-2"></i>Or book directly on WhatsApp
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- About Page -->
+    <div id="about-page" class="page-section">
+        <section class="py-12 sm:py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-10 sm:mb-16">
+                    <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">About MediCare</h2>
+                    <p class="text-gray-600 max-w-3xl mx-auto text-sm sm:text-base">
+                        Revolutionizing healthcare access through technology and compassion
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center mb-12 sm:mb-16">
+                    <div>
+                        <h3 class="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Our Mission</h3>
+                        <p class="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">
+                            At MediCare, we believe that quality healthcare should be accessible to everyone. 
+                            Our mission is to bridge the gap between patients and healthcare providers through 
+                            innovative technology and exceptional service.
+                        </p>
+                        <p class="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">
+                            We're committed to making the appointment booking process seamless, efficient, 
+                            and stress-free for both patients and doctors. Our platform connects you with 
+                            top-rated medical professionals in your area.
+                        </p>
+                        <div class="grid grid-cols-2 gap-4 mt-6 sm:mt-8">
+                            <div class="text-center p-3 sm:p-4 bg-indigo-50 rounded-lg">
+                                <div class="text-lg sm:text-xl font-bold text-indigo-600">10,000+</div>
+                                <div class="text-gray-600 text-xs sm:text-sm">Patients Served</div>
+                            </div>
+                            <div class="text-center p-3 sm:p-4 bg-green-50 rounded-lg">
+                                <div class="text-lg sm:text-xl font-bold text-green-600">200+</div>
+                                <div class="text-gray-600 text-xs sm:text-sm">Expert Doctors</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <img src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=600&h=400&fit=crop" alt="Healthcare team" class="rounded-lg shadow-lg w-full">
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <button class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300" onclick="showPage('home'); return false;">
+                        Back to Home
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Contact Page -->
+    <div id="contact-page" class="page-section">
+        <section class="py-12 sm:py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-10 sm:mb-16">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-4">Contact Us</h2>
+                    <p class="text-gray-600 max-w-3xl mx-auto text-sm sm:text-base">
+                        Have questions or need assistance? We're here to help.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12">
+                    <!-- Contact Information -->
+                    <div>
+                        <h3 class="text-xl sm:text-2xl font-bold text-gray-900 mb-5 sm:mb-6">Get in Touch</h3>
+                        
+                        <div class="space-y-5 sm:space-y-6">
+                            <div class="flex items-start">
+                                <div class="bg-indigo-100 p-2 sm:p-3 rounded-lg mr-3 sm:mr-4">
+                                    <i class="fas fa-phone text-indigo-600 text-lg sm:text-xl"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-base sm:text-lg font-semibold text-gray-900">Phone</h4>
+                                    <p class="text-gray-600 text-sm sm:text-base">(123) 456-7890</p>
+                                    <p class="text-gray-600 text-sm sm:text-base">Mon-Fri: 9:00 AM - 6:00 PM</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="bg-indigo-100 p-2 sm:p-3 rounded-lg mr-3 sm:mr-4">
+                                    <i class="fas fa-envelope text-indigo-600 text-lg sm:text-xl"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-base sm:text-lg font-semibold text-gray-900">Email</h4>
+                                    <p class="text-gray-600 text-sm sm:text-base">support@medicare.com</p>
+                                    <p class="text-gray-600 text-sm sm:text-base">info@medicare.com</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="bg-indigo-100 p-2 sm:p-3 rounded-lg mr-3 sm:mr-4">
+                                    <i class="fas fa-map-marker-alt text-indigo-600 text-lg sm:text-xl"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-base sm:text-lg font-semibold text-gray-900">Address</h4>
+                                    <p class="text-gray-600 text-sm sm:text-base">123 Medical Center Blvd</p>
+                                    <p class="text-gray-600 text-sm sm:text-base">Health City, HC 12345</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-8 sm:mt-12">
+                            <h4 class="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Connect With Us</h4>
+                            <div class="flex space-x-3 sm:space-x-4">
+                                <a href="#" class="bg-indigo-600 text-white p-2 sm:p-3 rounded-full hover:bg-indigo-700 transition duration-300">
+                                    <i class="fab fa-twitter text-base sm:text-lg"></i>
+                                </a>
+                                <a href="#" class="bg-blue-600 text-white p-2 sm:p-3 rounded-full hover:bg-blue-700 transition duration-300">
+                                    <i class="fab fa-facebook-f text-base sm:text-lg"></i>
+                                </a>
+                                <a href="#" class="bg-pink-600 text-white p-2 sm:p-3 rounded-full hover:bg-pink-700 transition duration-300">
+                                    <i class="fab fa-instagram text-base sm:text-lg"></i>
+                                </a>
+                                <a href="#" class="bg-red-600 text-white p-2 sm:p-3 rounded-full hover:bg-red-700 transition duration-300">
+                                    <i class="fab fa-youtube text-base sm:text-lg"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact Form -->
+                    <div>
+                        <div class="bg-white rounded-xl shadow-lg p-5 sm:p-6">
+                            <h3 class="text-xl sm:text-2xl font-bold text-gray-900 mb-5 sm:mb-6">Send us a Message</h3>
+                            
+                            <div id="form-success" class="hidden mb-5 sm:mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">
+                                Thank you for your message! We'll get back to you soon.
+                            </div>
+                            
+                            <form id="contact-form" class="space-y-5">
+                                <div>
+                                    <label for="contact-name" class="block text-sm font-medium text-gray-700 mb-1">
+                                        Full Name
+                                    </label>
+                                    <input type="text" id="contact-name" name="name" required class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base">
+                                </div>
+                                
+                                <div>
+                                    <label for="contact-email" class="block text-sm font-medium text-gray-700 mb-1">
+                                        Email Address
+                                    </label>
+                                    <input type="email" id="contact-email" name="email" required class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base">
+                                </div>
+                                
+                                <div>
+                                    <label for="contact-subject" class="block text-sm font-medium text-gray-700 mb-1">
+                                        Subject
+                                    </label>
+                                    <input type="text" id="contact-subject" name="subject" required class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base">
+                                </div>
+                                
+                                <div>
+                                    <label for="contact-message" class="block text-sm font-medium text-gray-700 mb-1">
+                                        Message
+                                    </label>
+                                    <textarea id="contact-message" name="message" rows="4" required class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"></textarea>
+                                </div>
+                                
+                                <div>
+                                    <button type="submit" class="w-full bg-indigo-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:bg-indigo-700 transition duration-300 text-sm sm:text-base">
+                                        Send Message
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-10">
+                    <button class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300" onclick="showPage('home'); return false;">
+                        Back to Home
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Appointments Page -->
+    <div id="appointments-page" class="page-section">
+        <section class="py-12 sm:py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-10 sm:mb-12">
+                    <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">My Appointments</h2>
+                    <p class="text-gray-600 max-w-2xl mx-auto text-sm sm:text-base">
+                        Manage and view your upcoming and past appointments
+                    </p>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                    <div class="flex flex-wrap gap-2">
+                        <button class="px-4 py-2 rounded-full text-sm font-medium bg-indigo-600 text-white">
+                            All Appointments
+                        </button>
+                        <button class="px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
+                            Pending
+                        </button>
+                        <button class="px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
+                            Confirmed
+                        </button>
+                        <button class="px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
+                            Completed
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="space-y-6">
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                        <div class="p-6">
+                            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                                <div>
+                                    <h3 class="text-xl font-semibold text-gray-900">Dr. Sarah Johnson</h3>
+                                    <p class="text-indigo-600">Cardiologist</p>
+                                    <p class="text-gray-600 mt-2">Annual heart checkup</p>
+                                </div>
+                                <div class="mt-4 md:mt-0">
+                                    <span class="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                        Confirmed
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="flex items-center">
+                                    <div class="bg-indigo-100 p-3 rounded-lg mr-4">
+                                        <i class="fas fa-calendar text-indigo-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Date</p>
+                                        <p class="font-medium">Oct 15, 2023</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center">
+                                    <div class="bg-indigo-100 p-3 rounded-lg mr-4">
+                                        <i class="fas fa-clock text-indigo-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Time</p>
+                                        <p class="font-medium">10:30 AM</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center">
+                                    <div class="bg-indigo-100 p-3 rounded-lg mr-4">
+                                        <i class="fas fa-tag text-indigo-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Confirmation Code</p>
+                                        <p class="font-medium">MC-123456</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6 flex flex-col sm:flex-row sm:space-x-4 space-y-2 sm:space-y-0">
+                                <button class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-300">
+                                    Reschedule
+                                </button>
+                                <button class="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition duration-300">
+                                    Cancel Appointment
+                                </button>
+                                <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-300">
+                                    View Details
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-10">
+                    <button class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300" onclick="showPage('home'); return false;">
+                        Back to Home
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Admin Dashboard Page -->
+    <div id="admin-page" class="page-section">
+        <section class="py-12 sm:py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-8">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h2>
+                    <p class="text-gray-600 text-sm sm:text-base">Manage appointments and clinic operations</p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
+                    <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+                        <div class="flex items-center">
+                            <div class="bg-indigo-100 p-2 sm:p-3 rounded-lg mr-3 sm:mr-4">
+                                <i class="fas fa-calendar text-indigo-600 text-lg sm:text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs sm:text-sm text-gray-500">Total Appointments</p>
+                                <p class="text-xl sm:text-2xl font-bold">24</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+                        <div class="flex items-center">
+                            <div class="bg-green-100 p-2 sm:p-3 rounded-lg mr-3 sm:mr-4">
+                                <i class="fas fa-check-circle text-green-600 text-lg sm:text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs sm:text-sm text-gray-500">Confirmed</p>
+                                <p class="text-xl sm:text-2xl font-bold">18</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+                        <div class="flex items-center">
+                            <div class="bg-yellow-100 p-2 sm:p-3 rounded-lg mr-3 sm:mr-4">
+                                <i class="fas fa-clock text-yellow-600 text-lg sm:text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs sm:text-sm text-gray-500">Pending</p>
+                                <p class="text-xl sm:text-2xl font-bold">4</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+                        <div class="flex items-center">
+                            <div class="bg-blue-100 p-2 sm:p-3 rounded-lg mr-3 sm:mr-4">
+                                <i class="fas fa-file-medical text-blue-600 text-lg sm:text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs sm:text-sm text-gray-500">Completed</p>
+                                <p class="text-xl sm:text-2xl font-bold">20</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Appointments Table -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Patient
+                                    </th>
+                                    <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Doctor
+                                    </th>
+                                    <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Date & Time
+                                    </th>
+                                    <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Reason
+                                    </th>
+                                    <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Status
+                                    </th>
+                                    <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-900">John Smith</div>
+                                            <div class="text-sm text-gray-500">john@example.com</div>
+                                            <div class="text-sm text-gray-500">(123) 456-7890</div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">Dr. Sarah Johnson</div>
+                                    </td>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">Oct 15, 2023</div>
+                                        <div class="text-sm text-gray-500">10:30 AM</div>
+                                    </td>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        Annual heart checkup
+                                    </td>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            Confirmed
+                                        </span>
+                                    </td>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-indigo-600 hover:text-indigo-900 mr-3">
+                                            View
+                                        </button>
+                                        <button class="text-red-600 hover:text-red-900">
+                                            Cancel
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-900">Maria Garcia</div>
+                                            <div class="text-sm text-gray-500">maria@example.com</div>
+                                            <div class="text-sm text-gray-500">(234) 567-8901</div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">Dr. Michael Chen</div>
+                                    </td>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">Oct 20, 2023</div>
+                                        <div class="text-sm text-gray-500">02:00 PM</div>
+                                    </td>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        Headache consultation
+                                    </td>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                            Pending
+                                        </span>
+                                    </td>
+                                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-green-600 hover:text-green-900 mr-3">
+                                            Confirm
+                                        </button>
+                                        <button class="text-red-600 hover:text-red-900">
+                                            Cancel
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-10">
+                    <button class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300" onclick="showPage('home'); return false;">
+                        Back to Home
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 class="text-xl sm:text-2xl font-bold text-green-600 mb-3 sm:mb-4">Appointment Confirmed!</h2>
+            <p class="mb-3 sm:mb-4 text-sm sm:text-base">Your appointment has been successfully booked.</p>
+            <div class="bg-green-50 p-3 sm:p-4 rounded-lg mb-3 sm:mb-4">
+                <p class="text-sm sm:text-base"><strong>Confirmation Code:</strong> <span id="confirmation-code" class="font-mono">MC-789456</span></p>
+                <p class="text-sm sm:text-base"><strong>Doctor:</strong> <span id="modal-doctor">Dr. Sarah Johnson</span></p>
+                <p class="text-sm sm:text-base"><strong>Date:</strong> <span id="modal-date">Oct 15, 2023</span></p>
+                <p class="text-sm sm:text-base"><strong>Time:</strong> <span id="modal-time">10:30 AM</span></p>
+            </div>
+            <p class="text-xs sm:text-sm text-gray-600">A confirmation email has been sent to your email address.</p>
+            <button id="close-modal" class="mt-4 w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm sm:text-base">Close</button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white">
+        <div class="max-w-7xl mx-auto py-10 sm:py-12 px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div>
+                    <h3 class="text-lg sm:text-xl font-semibold mb-4">MediCare</h3>
+                    <p class="text-gray-300 text-sm sm:text-base">
+                        Your trusted platform for booking medical appointments with top-rated doctors.
+                    </p>
+                    <div class="flex space-x-3 sm:space-x-4 mt-4">
+                        <a href="#" class="text-gray-300 hover:text-white">
+                            <i class="fab fa-facebook-f"></i>
+                        </a>
+                        <a href="#" class="text-gray-300 hover:text-white">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="text-gray-300 hover:text-white">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                        <a href="#" class="text-gray-300 hover:text-white">
+                            <i class="fab fa-linkedin-in"></i>
+                        </a>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg sm:text-xl font-semibold mb-4">Quick Links</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-300 hover:text-white text-sm sm:text-base" onclick="showPage('home'); return false;">Home</a></li>
+                        <li><a href="#" class="text-gray-300 hover:text-white text-sm sm:text-base" onclick="showPage('doctors'); return false;">Find Doctors</a></li>
+                        <li><a href="#" class="text-gray-300 hover:text-white text-sm sm:text-base" onclick="showPage('about'); return false;">About Us</a></li>
+                        <li><a href="#" class="text-gray-300 hover:text-white text-sm sm:text-base" onclick="showPage('contact'); return false;">Contact</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg sm:text-xl font-semibold mb-4">Services</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-300 hover:text-white text-sm sm:text-base">Online Appointments</a></li>
+                        <li><a href="#" class="text-gray-300 hover:text-white text-sm sm:text-base">Emergency Booking</a></li>
+                        <li><a href="#" class="text-gray-300 hover:text-white text-sm sm:text-base">Medical Records</a></li>
+                        <li><a href="#" class="text-gray-300 hover:text-white text-sm sm:text-base">Health Consultations</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg sm:text-xl font-semibold mb-4">Contact Info</h3>
+                    <ul class="space-y-2 text-gray-300 text-sm sm:text-base">
+                        <li>123 Medical Street</li>
+                        <li>Health City, HC 12345</li>
+                        <li>Phone: (123) 456-7890</li>
+                        <li>Email: info@medicare.com</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-700 mt-8 sm:mt-10 pt-6 sm:pt-8 text-center text-gray-300 text-sm">
+                <p>&copy; 2023 MediCare. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
+    <script>
+        // Mobile menu toggle
+        document.getElementById('mobile-menu-button').addEventListener('click', function() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        });
+
+        // Page navigation system
+        function showPage(pageName) {
+            // Hide all pages
+            const pages = document.querySelectorAll('.page-section');
+            pages.forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // Show requested page
+            document.getElementById(pageName + '-page').classList.add('active');
+            
+            // Update navigation active state
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Add active class to current page link
+            if (pageName === 'home' || pageName === 'doctors' || pageName === 'about' || pageName === 'contact') {
+                const activeLink = document.querySelector(`a[onclick="showPage('${pageName}'); return false;"]`);
+                if (activeLink) {
+                    activeLink.classList.add('active');
+                }
+            }
+            
+            // Close mobile menu if open
+            document.getElementById('mobile-menu').classList.add('hidden');
+        }
+
+        // Initialize Swiper after the DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const swiper = new Swiper('.mySwiper', {
+                slidesPerView: 1,
+                spaceBetween: 20,
+                loop: true,
+                pagination: {
+                    el: '.swiper-pagination',
+                    clickable: true,
+                },
+                navigation: {
+                    nextEl: '.swiper-button-next',
+                    prevEl: '.swiper-button-prev',
+                },
+                breakpoints: {
+                    640: {
+                        slidesPerView: 1,
+                        spaceBetween: 20,
+                    },
+                    768: {
+                        slidesPerView: 2,
+                        spaceBetween: 30,
+                    },
+                    1024: {
+                        slidesPerView: 3,
+                        spaceBetween: 30,
+                    },
+                },
+            });
+
+            // Book appointment button functionality
+            const bookButtons = document.querySelectorAll('.book-btn');
+            const doctorNameElement = document.getElementById('doctor-name-booking');
+            const doctorSpecialtyElement = document.getElementById('doctor-specialty-booking');
+            const doctorPhotoElement = document.getElementById('doctor-photo-booking');
+            const patientNameElement = document.getElementById('patient-name-booking');
+            const appointmentDateElement = document.getElementById('appointment-date-booking');
+            const appointmentTimeElement = document.getElementById('appointment-time-booking');
+
+            bookButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const doctorName = this.getAttribute('data-doctor');
+                    doctorNameElement.textContent = doctorName;
+                    doctorSpecialtyElement.textContent = getSpecialty(doctorName);
+                    doctorPhotoElement.src = getDoctorPhoto(doctorName);
+                    
+                    // Show booking page
+                    showPage('booking');
+                });
+            });
+
+            // Helper functions for doctor details
+            function getSpecialty(doctorName) {
+                const specialties = {
+                    'Dr. Sarah Johnson': 'Cardiologist',
+                    'Dr. Michael Chen': 'Neurologist',
+                    'Dr. Emily Rodriguez': 'Pediatrician'
+                };
+                return specialties[doctorName] || 'Specialist';
+            }
+
+            function getDoctorPhoto(doctorName) {
+                const photos = {
+                    'Dr. Sarah Johnson': 'https://images.unsplash.com/photo-1559839734-2b71ea811ec6?w=200&h=200&fit=crop',
+                    'Dr. Michael Chen': 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&h=200&fit=crop',
+                    'Dr. Emily Rodriguez': 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=200&h=200&fit=crop'
+                };
+                return photos[doctorName] || 'https://images.unsplash.com/photo-1559839734-2b71ea811ec6?w=200&h=200&fit=crop';
+            }
+
+            // Update appointment details in real-time
+            document.getElementById('name').addEventListener('input', function() {
+                patientNameElement.textContent = this.value || 'Not specified';
+            });
+
+            document.getElementById('date').addEventListener('change', function() {
+                const date = new Date(this.value);
+                const options = { year: 'numeric', month: 'short', day: 'numeric' };
+                appointmentDateElement.textContent = date.toLocaleDateString('en-US', options) || 'Not selected';
+            });
+
+            document.getElementById('time').addEventListener('change', function() {
+                appointmentTimeElement.textContent = this.value || 'Not selected';
+            });
+
+            // Form submission handling with modal
+            const appointmentForm = document.getElementById('appointment-form');
+            const successModal = document.getElementById('success-modal');
+            const closeModal = document.getElementsByClassName('close')[0];
+            const closeBtn = document.getElementById('close-modal');
+            const whatsappCheckbox = document.getElementById('whatsapp');
+
+            appointmentForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Get form data
+                const name = document.getElementById('name').value;
+                const email = document.getElementById('email').value;
+                const phone = document.getElementById('phone').value;
+                const date = document.getElementById('date').value;
+                const time = document.getElementById('time').value;
+                const reason = document.getElementById('reason').value;
+                const doctor = document.getElementById('doctor-name-booking').textContent;
+                const sendWhatsApp = whatsappCheckbox.checked;
+                
+                // Generate confirmation code
+                const confirmationCode = 'MC-' + Math.floor(100000 + Math.random() * 900000);
+                
+                // Update modal with appointment details
+                document.getElementById('modal-doctor').textContent = doctor;
+                document.getElementById('confirmation-code').textContent = confirmationCode;
+                
+                const dateObj = new Date(date);
+                const options = { year: 'numeric', month: 'short', day: 'numeric' };
+                document.getElementById('modal-date').textContent = dateObj.toLocaleDateString('en-US', options);
+                document.getElementById('modal-time').textContent = time;
+                
+                // Simulate sending email notification
+                sendEmailNotification(email, name, doctor, date, time, confirmationCode);
+                
+                // Simulate sending WhatsApp notification if checked
+                if (sendWhatsApp) {
+                    sendWhatsAppNotification(phone, name, doctor, date, time, confirmationCode);
+                }
+                
+                // Show success modal
+                successModal.style.display = 'block';
+                
+                // Reset form
+                appointmentForm.reset();
+                resetFormDetails();
+            });
+
+            // Close modal
+            closeModal.onclick = function() {
+                successModal.style.display = 'none';
+            }
+            
+            closeBtn.onclick = function() {
+                successModal.style.display = 'none';
+            }
+
+            window.onclick = function(event) {
+                if (event.target == successModal) {
+                    successModal.style.display = 'none';
+                }
+            }
+
+            // Contact form submission
+            document.getElementById('contact-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Show success message
+                document.getElementById('form-success').classList.remove('hidden');
+                
+                // Reset form
+                this.reset();
+                
+                // Hide success message after 5 seconds
+                setTimeout(() => {
+                    document.getElementById('form-success').classList.add('hidden');
+                }, 5000);
+            });
+
+            // Reset form details
+            function resetForm() {
+                appointmentForm.reset();
+                resetFormDetails();
+            }
+
+            function resetFormDetails() {
+                patientNameElement.textContent = 'Not specified';
+                appointmentDateElement.textContent = 'Not selected';
+                appointmentTimeElement.textContent = 'Not selected';
+            }
+
+            // Initialize date input with today's date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date').min = today;
+            document.getElementById('date').value = today;
+
+            // Notification functions (simulated)
+            function sendEmailNotification(email, name, doctor, date, time, confirmationCode) {
+                // In a real implementation, this would make an API call to your backend
+                // which would use services like SendGrid, Nodemailer, etc.
+                
+                console.log(`Sending email to: ${email}`);
+                console.log(`Subject: MediCare Appointment Confirmation - ${confirmationCode}`);
+                console.log(`Body: Hello ${name}, your appointment with ${doctor} on ${date} at ${time} has been confirmed. Confirmation code: ${confirmationCode}`);
+                
+                // Show email notification
+                const emailNotification = document.getElementById('email-notification');
+                emailNotification.style.display = 'block';
+                setTimeout(() => {
+                    emailNotification.style.display = 'none';
+                }, 3000);
+            }
+
+            function sendWhatsAppNotification(phone, name, doctor, date, time, confirmationCode) {
+                // In a real implementation, this would make an API call to your backend
+                // which would use services like Twilio
+                console.log(`Sending WhatsApp to: ${phone}`);
+                console.log(`Message: Hello ${name}, your MediCare appointment with ${doctor} on ${date} at ${time} is confirmed. Code: ${confirmationCode}`);
+                
+                // Show WhatsApp notification
+                const whatsappNotification = document.getElementById('whatsapp-notification');
+                whatsappNotification.style.display = 'block';
+                setTimeout(() => {
+                    whatsappNotification.style.display = 'none';
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>
